@@ -52,9 +52,8 @@
       padding: 0 8px;
       transition: all ease-in-out 220ms;
 
-      @media only screen and (max-width: 909px) {
-        margin-left: 90px;
-      }
+      /* Obsidian port: 90px offset reserved space for macOS traffic lights
+         in Pile's frameless window — no traffic lights inside a pane. */
 
       .icon {
         color: var(--secondary);
@@ -234,17 +233,20 @@
 }
 
 // OS Styles
+// Obsidian port: these offsets made room for macOS traffic lights (left)
+// and Windows caption buttons (right) in Pile's frameless window. Inside an
+// Obsidian pane there is no window chrome, so they are dead space.
 
 .mac {
   .nav {
     @media only screen and (max-width: 909px) {
-      padding-left: 70px;
+      padding-left: 0;
     }
   }
 }
 
 .win {
   .nav {
-    padding-right: 130px;
+    padding-right: 0;
   }
 }

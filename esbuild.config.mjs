@@ -61,11 +61,15 @@ async function classGateDarkMode(css) {
  *  body{overflow:hidden}. contain:paint scopes Pile's position:fixed children
  *  (sidebar, background) to the pane instead of the whole window. */
 const CONTAINMENT_CSS = `
-${SCOPE}{position:relative!important;width:100%!important;height:100%!important;overflow:hidden!important;contain:layout paint style;border-radius:10px;corner-shape:superellipse(2.4);}
+${SCOPE}{position:relative!important;width:100%!important;height:100%!important;overflow:hidden!important;contain:layout paint style;}
 ${SCOPE}>.pile-host{width:100%!important;height:100%!important;}
 ${SCOPE}>.pile-host>div{width:100%!important;height:100%!important;}
 ${SCOPE}>.pile-host>div>div{height:100%!important;display:flex!important;flex-direction:column!important;background:var(--bg);}
 ${SCOPE}>.pile-host>div>div>div:nth-child(2){flex:1 1 auto!important;min-height:0!important;height:auto!important;}
+${SCOPE},${SCOPE} *{-webkit-app-region:no-drag!important;}
+/* Light-DOM rule (applies via the document-level styles.css copy): strip
+   Obsidian's default view padding so Pile fills the pane edge-to-edge. */
+.workspace-leaf-content[data-type="pile-view"] .view-content{padding:0!important;}
 `;
 
 /** Resolve Pile's Electron imports to our in-process shims. */
