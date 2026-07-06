@@ -21,6 +21,14 @@ import { useAIContext } from 'renderer/context/AIContext';
 import useThread from 'renderer/hooks/useThread';
 import LinkPreviews from './LinkPreviews';
 import { useToastsContext } from 'renderer/context/ToastsContext';
+import {
+  createEditorId,
+  registerEditor,
+  notifyEditorFocus,
+  extractMediaFiles,
+  extensionForFile,
+  mediaKind,
+} from 'renderer/utils/editorRegistry';
 
 // Escape special characters
 const escapeRegExp = (string) => {
@@ -91,25 +99,35 @@ const Editor = memo(
     });
 
     const handleFile = (file) => {
-      if (file && file.type.indexOf('image') === 0) {
-        const fileName = file.name; // Retrieve the filename
-        const fileExtension = fileName.split('.').pop(); // Extract the file extension
-        // Handle the image file here (e.g., upload, display, etc.)
-        const reader = new FileReader();
-        reader.onload = () => {
-          const imageData = reader.result;
-          attachToPost(imageData, fileExtension);
-        };
-        reader.readAsDataURL(file);
+      if (!file || !mediaKind(file)) return false;
+      const fileExtension = extensionForFile(file);
+      if (!fileExtension) return false;
+
+      // Files copied from disk (Finder, Screen Studio exports) carry a real
+      // path — copy them directly instead of round-tripping large videos
+      // through base64.
+      const filePath = window.electron.getPathForFile?.(file);
+      if (filePath) {
+        attachToPost({ filePath }, fileExtension);
+        return true;
       }
+
+      // Bitmap-only clipboards (macOS screenshots) have no path.
+      const reader = new FileReader();
+      reader.onload = () => {
+        attachToPost(reader.result, fileExtension);
+      };
+      reader.readAsDataURL(file);
+      return true;
     };
 
-    const handleDataTransferItem = (item) => {
-      const file = item.getAsFile();
-      if (file) {
-        handleFile(file);
-      }
-    };
+    // Latest handleFile for closures created once (TipTap editorProps,
+    // registry registration) so they never act on a stale attachToPost.
+    const handleFileRef = useRef(handleFile);
+    handleFileRef.current = handleFile;
+
+    const editorIdRef = useRef(null);
+    if (!editorIdRef.current) editorIdRef.current = createEditorId();
 
     const editor = useEditor({
       extensions: [
@@ -126,39 +144,25 @@ const Editor = memo(
       ],
       editorProps: {
         handlePaste: function (view, event, slice) {
-          const items = Array.from(event.clipboardData?.items || []);
-          let imageHandled = false; // flag to track if an image was handled
-
-          if (items) {
-            items.forEach((item) => {
-              // Check if the item type is an image
-              if (item.type && item.type.indexOf('image') === 0) {
-                handleDataTransferItem(item);
-                imageHandled = true;
-              }
-            });
-          }
-          return imageHandled;
+          const files = extractMediaFiles(event.clipboardData);
+          if (files.length === 0) return false; // default paste behaviour
+          files.forEach((file) => handleFileRef.current(file));
+          return true;
         },
         handleDrop: function (view, event, slice, moved) {
-          let imageHandled = false; // flag to track if an image was handled
-          if (
-            !moved &&
-            event.dataTransfer &&
-            event.dataTransfer.files &&
-            event.dataTransfer.files[0]
-          ) {
-            // if dropping external files
-            const files = Array.from(event.dataTransfer.files);
-            files.forEach(handleFile);
-            return imageHandled; // handled
-          }
-          return imageHandled; // not handled use default behaviour
+          if (moved) return false;
+          const files = extractMediaFiles(event.dataTransfer);
+          if (files.length === 0) return false; // default drop behaviour
+          files.forEach((file) => handleFileRef.current(file));
+          return true;
         },
       },
       autofocus: true,
       editable: editable,
       content: post?.content || '',
+      onFocus: () => {
+        notifyEditorFocus(editorIdRef.current);
+      },
       onUpdate: ({ editor }) => {
         setContent(editor.getHTML());
       },
@@ -191,6 +195,20 @@ const Editor = memo(
       if (!editor) return;
       generateAiResponse();
     }, [editor, isAI]);
+
+    // Editable editors register themselves so pastes landing outside any
+    // editor (see PileLayout) can be routed to the right one.
+    useEffect(() => {
+      if (!editor || !editable || isAI) return;
+      return registerEditor(editorIdRef.current, {
+        attachFile: (file) => handleFileRef.current(file),
+        focus: () => {
+          editor.commands.focus('end');
+          editor.view?.dom?.scrollIntoView?.({ block: 'nearest' });
+        },
+        isDefault: isNew && !isReply,
+      });
+    }, [editor, editable, isAI]);
 
     const handleSubmit = useCallback(async () => {
       await savePost();

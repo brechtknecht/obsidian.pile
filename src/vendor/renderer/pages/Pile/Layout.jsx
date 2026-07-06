@@ -3,7 +3,7 @@ import styles from './PileLayout.module.scss';
 import { HomeIcon } from 'renderer/icons';
 import Sidebar from './Sidebar/Timeline/index';
 import { useIndexContext } from 'renderer/context/IndexContext';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { DateTime } from 'luxon';
 import Settings from './Settings';
 import HighlightsDialog from './Highlights';
@@ -14,8 +14,13 @@ import { useTimelineContext } from 'renderer/context/TimelineContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import InstallUpdate from './InstallUpdate';
 import Chat from './Chat';
+import {
+  extractMediaFiles,
+  routeMediaFiles,
+} from 'renderer/utils/editorRegistry';
 
 export default function PileLayout({ children }) {
+  const frameRef = useRef(null);
   const { pileName } = useParams();
   const { index, refreshIndex } = useIndexContext();
   const { visibleIndex, closestDate } = useTimelineContext();
@@ -39,6 +44,36 @@ export default function PileLayout({ children }) {
     window.scrollTo(0, 0);
   }, []);
 
+  // Catch media pastes that land outside any editor (whitespace, scroll
+  // area, or nothing focused at all) and route them to the last-focused
+  // editor — or the new-post box as the default. Editors and other text
+  // inputs keep handling their own pastes.
+  useEffect(() => {
+    const onPaste = (event) => {
+      const frame = frameRef.current;
+      if (!frame || !frame.isConnected || frame.offsetParent === null) return; // Pile view hidden
+
+      // The Pile app lives in a shadow root; window-level listeners see the
+      // retargeted host as event.target, so resolve the real inner target.
+      const target = event.composedPath ? event.composedPath()[0] : event.target;
+      if (target instanceof Element) {
+        if (target.closest('.ProseMirror')) return; // editor handles its own paste
+        if (target.closest('input, textarea, [contenteditable="true"]')) return;
+        // Only claim pastes aimed at the pile view or at nothing in particular.
+        if (!frame.contains(target) && target !== document.body) return;
+      }
+
+      const files = extractMediaFiles(event.clipboardData);
+      if (files.length === 0) return;
+
+      event.preventDefault();
+      routeMediaFiles(files);
+    };
+
+    window.addEventListener('paste', onPaste, true);
+    return () => window.removeEventListener('paste', onPaste, true);
+  }, []);
+
   const themeStyles = useMemo(() => {
     return currentTheme ? currentTheme + 'Theme' : '';
   }, [currentTheme]);
@@ -49,7 +84,7 @@ export default function PileLayout({ children }) {
   );
 
   return (
-    <div className={`${styles.frame} ${themeStyles} ${osStyles}`}>
+    <div ref={frameRef} className={`${styles.frame} ${themeStyles} ${osStyles}`}>
       <div className={styles.bg}></div>
       <div className={styles.main}>
         <div className={styles.sidebar}>

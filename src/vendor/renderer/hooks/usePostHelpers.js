@@ -23,14 +23,31 @@ export const getPost = async (postPath) => {
 };
 
 export const attachToPostCreator =
-  (setPost, getCurrentPilePath) => async (imageData, fileExtension) => {
+  (setPost, getCurrentPilePath) => async (fileData, fileExtension) => {
     const storePath = getCurrentPilePath();
 
     let newAttachments = [];
-    if (imageData) {
-      // save image data to a file
+    if (fileData && typeof fileData === 'object' && fileData.filePath) {
+      // media that already exists on disk (pasted/dropped file) — copy it
+      // into the pile instead of round-tripping through base64
+      const newFilePath = await window.electron.ipc.invoke(
+        'save-file-from-path',
+        {
+          sourcePath: fileData.filePath,
+          fileExtension: fileExtension,
+          storePath: storePath,
+        }
+      );
+
+      if (newFilePath) {
+        newAttachments.push(newFilePath);
+      } else {
+        console.error('Failed to copy the pasted file.');
+      }
+    } else if (fileData) {
+      // save data URL contents (e.g. pasted screenshot) to a file
       const newFilePath = await window.electron.ipc.invoke('save-file', {
-        fileData: imageData,
+        fileData: fileData,
         fileExtension: fileExtension,
         storePath: storePath,
       });

@@ -71,6 +71,18 @@ function buildElectronBridge(configPath: string) {
       }
     },
     joinPath: (...args: string[]) => path.join(...args),
+    // Real disk path of a pasted/dropped File, if it has one (empty string
+    // for bitmap-only clipboard data like macOS screenshots).
+    getPathForFile: (file: File): string => {
+      try {
+        const webUtils = (window as any).require?.("electron")?.webUtils;
+        const viaUtils = webUtils?.getPathForFile?.(file);
+        if (viaUtils) return viaUtils;
+      } catch {
+        /* fall through */
+      }
+      return (file as any).path || "";
+    },
     isMac: process.platform === "darwin",
     isWindows: process.platform === "win32",
     pathSeparator: path.sep,

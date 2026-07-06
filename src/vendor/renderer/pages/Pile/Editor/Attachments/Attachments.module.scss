@@ -18,12 +18,14 @@
     overflow: hidden;
   }
 
-  img {
+  img,
+  video {
     max-height: 350px;
     min-width: 500px;
     max-width: 100%;
     object-fit: contain;
     width: auto;
+    display: block;
 
     transition: all ease-in-out 120ms;
 
