@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build outputs (rebuild with `npm run build`)
+main.js
+main.css
+styles.css
+
+# Local runtime state — NEVER commit (contains machine paths and the AI key)
+piles.json
+pile-settings.json
+data.json
+
+# OS noise
+.DS_Store
