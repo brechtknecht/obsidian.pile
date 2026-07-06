@@ -244,14 +244,12 @@
   flex-shrink: 0;
   display: flex;
   border: 2px solid var(--bg-tertiary);
-  border-bottom: none;
-  border-bottom-width: 1px;
   border-radius: 12px 12px 0 0;
 }
 
 .tabsTrigger {
   font-family: inherit;
-  padding: 0 20px;
+  padding: 0 12px;
   height: 38px;
   flex: 1;
   display: flex;
@@ -262,10 +260,13 @@
   color: var(--secondary);
   user-select: none;
   font-size: 0.85em;
-  border-bottom: 2px solid var(--bg-tertiary);
-  gap: 10px;
+  white-space: nowrap;
+  // Pull the trigger down so its bottom border overlaps the list's,
+  // giving a continuous underline that the active tab punches through.
+  margin-bottom: -2px;
+  border-bottom: 2px solid transparent;
+  gap: 8px;
   justify-content: space-between;
-  // background: var(--bg-tertiary);
 
   .icon {
     height: 18px;
@@ -288,44 +289,11 @@
   &[data-state='active'] {
     color: var(--active);
     background-color: var(--bg);
-    border-bottom: 2px solid var(--bg);
+    border-bottom-color: var(--bg);
   }
 
   &:focus {
     position: relative;
-  }
-
-  &.activeLeft {
-    border-bottom-left-radius: 10px;
-    border-left: 2px solid var(--bg-tertiary);
-    border-right: 2px solid var(--bg-tertiary);
-
-    &:first-child {
-    }
-
-    &:last-child {
-    }
-  }
-
-  &.activeCenter {
-    &:first-child {
-      border-right: 2px solid var(--bg-tertiary);
-      border-bottom-right-radius: 12px;
-    }
-
-    &:last-child {
-      border-bottom-left-radius: 12px;
-      border-left: 2px solid var(--bg-tertiary);
-    }
-  }
-
-  &.activeRight {
-    border-right: 2px solid var(--bg-tertiary);
-    border-bottom-right-radius: 12px;
-
-    &:first-child {
-      border-bottom-right-radius: 0px;
-    }
   }
 }
 

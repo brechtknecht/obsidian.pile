@@ -82,30 +82,15 @@ export default function AISettingTabs({ APIkey, setCurrentKey }) {
       onValueChange={handleTabChange}
     >
       <Tabs.List className={styles.tabsList} aria-label="Manage your account">
-        <Tabs.Trigger
-          className={`${styles.tabsTrigger} ${
-            pileAIProvider === 'ollama' ? styles.activeCenter : ''
-          } ${pileAIProvider === 'openai' ? styles.activeRight : ''}`}
-          value="subscription"
-        >
+        <Tabs.Trigger className={styles.tabsTrigger} value="subscription">
           Subscription
           <CardIcon className={styles.icon} />
         </Tabs.Trigger>
-        <Tabs.Trigger
-          className={`${styles.tabsTrigger} ${
-            pileAIProvider === 'subscription' ? styles.activeLeft : ''
-          } ${pileAIProvider === 'openai' ? styles.activeRight : ''}`}
-          value="ollama"
-        >
+        <Tabs.Trigger className={styles.tabsTrigger} value="ollama">
           Ollama API
           <OllamaIcon className={styles.icon} />
         </Tabs.Trigger>
-        <Tabs.Trigger
-          className={`${styles.tabsTrigger} ${
-            pileAIProvider === 'ollama' ? styles.activeCenter : ''
-          }`}
-          value="openai"
-        >
+        <Tabs.Trigger className={styles.tabsTrigger} value="openai">
           OpenAI API
           <BoxOpenIcon className={styles.icon} />
         </Tabs.Trigger>
