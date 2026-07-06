@@ -128,6 +128,7 @@ export async function mountPile(opts: MountOptions): Promise<() => void> {
   await import("./vendor/main/handlers/highlights");
   await import("./vendor/main/handlers/links");
   await import("./vendor/main/handlers/keys");
+  await import("./vendor/main/handlers/harness");
   await import("./vendor/main/handlers/store");
 
   const App = (await import("./vendor/renderer/App")).default;

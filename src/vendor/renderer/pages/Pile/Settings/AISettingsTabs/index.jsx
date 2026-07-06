@@ -6,7 +6,7 @@ import {
   usePilesContext,
   availableThemes,
 } from 'renderer/context/PilesContext';
-import { CardIcon, OllamaIcon, BoxOpenIcon } from 'renderer/icons';
+import { CardIcon, OllamaIcon, BoxOpenIcon, AIIcon } from 'renderer/icons';
 import { useIndexContext } from 'renderer/context/IndexContext';
 
 export default function AISettingTabs({ APIkey, setCurrentKey }) {
@@ -26,9 +26,30 @@ export default function AISettingTabs({ APIkey, setCurrentKey }) {
     baseUrl,
     pileAIProvider,
     setPileAIProvider,
+    harnessType,
+    setHarnessType,
+    harnessModel,
+    setHarnessModel,
   } = useAIContext();
 
   const { currentTheme, setTheme } = usePilesContext();
+  const [harnessStatus, setHarnessStatus] = useState(null);
+
+  useEffect(() => {
+    window.electron.ipc
+      .invoke('harness-status')
+      .then(setHarnessStatus)
+      .catch(() => setHarnessStatus(null));
+  }, []);
+
+  const describeHarness = (key, label) => {
+    if (!harnessStatus) return label;
+    const status = harnessStatus[key];
+    if (status?.broken) return `${label} — broken install`;
+    return status?.available ? `${label} — installed` : `${label} — not found`;
+  };
+
+  const selectedHarnessStatus = harnessStatus?.[harnessType];
 
   const handleTabChange = (newValue) => {
     setPileAIProvider(newValue);
@@ -88,6 +109,10 @@ export default function AISettingTabs({ APIkey, setCurrentKey }) {
           OpenAI API
           <BoxOpenIcon className={styles.icon} />
         </Tabs.Trigger>
+        <Tabs.Trigger className={styles.tabsTrigger} value="harness">
+          CLI Agent
+          <AIIcon className={styles.icon} />
+        </Tabs.Trigger>
       </Tabs.List>
 
       <Tabs.Content className={styles.tabsContent} value="subscription">
@@ -134,8 +159,8 @@ export default function AISettingTabs({ APIkey, setCurrentKey }) {
                 className={styles.input}
                 onChange={handleInputChange(setModel)}
                 value={model}
-                defaultValue="llama3.1:70b"
-                placeholder="llama3.1:70b"
+                defaultValue="llama3.3"
+                placeholder="llama3.3"
               />
             </fieldset>
             <fieldset className={styles.fieldset}>
@@ -195,7 +220,7 @@ export default function AISettingTabs({ APIkey, setCurrentKey }) {
                 className={styles.input}
                 onChange={handleInputChange(setModel)}
                 value={model}
-                placeholder="gpt-4o"
+                placeholder="gpt-5.1"
               />
             </fieldset>
           </div>
@@ -214,6 +239,68 @@ export default function AISettingTabs({ APIkey, setCurrentKey }) {
           <div className={styles.disclaimer}>
             Remember to manage your spend by setting up a budget in the API
             service you choose to use.
+          </div>
+        </div>
+      </Tabs.Content>
+
+      <Tabs.Content className={styles.tabsContent} value="harness">
+        <div className={styles.providers}>
+          <div className={styles.pitch}>
+            Use an AI coding agent already installed on your computer.
+            Reflections and chat run through its CLI on your existing
+            subscription — no API key needed.
+          </div>
+
+          <div className={styles.group}>
+            <fieldset className={styles.fieldset}>
+              <label className={styles.label} htmlFor="harness-type">
+                Agent
+              </label>
+              <select
+                id="harness-type"
+                className={styles.input}
+                onChange={handleInputChange(setHarnessType)}
+                value={harnessType}
+              >
+                <option value="claude">
+                  {describeHarness('claude', 'Claude Code')}
+                </option>
+                <option value="codex">
+                  {describeHarness('codex', 'Codex')}
+                </option>
+              </select>
+            </fieldset>
+            <fieldset className={styles.fieldset}>
+              <label className={styles.label} htmlFor="harness-model">
+                Model (optional)
+              </label>
+              <input
+                id="harness-model"
+                className={styles.input}
+                onChange={handleInputChange(setHarnessModel)}
+                value={harnessModel}
+                placeholder="CLI default (e.g. sonnet, opus)"
+              />
+            </fieldset>
+          </div>
+
+          <div className={styles.disclaimer}>
+            {selectedHarnessStatus?.broken ? (
+              <>
+                This CLI is installed but its binary fails to run — reinstall
+                it, then reopen settings.{' '}
+              </>
+            ) : selectedHarnessStatus?.available === false ? (
+              <>
+                The selected CLI was not found on this computer. Install it and
+                sign in from a terminal first, then reopen settings.{' '}
+              </>
+            ) : selectedHarnessStatus?.version ? (
+              <>Detected: {selectedHarnessStatus.version}. </>
+            ) : null}
+            Search and reflection context still use embeddings, which CLI
+            agents cannot generate — your OpenAI key is used for those if
+            set, otherwise local Ollama.
           </div>
         </div>
       </Tabs.Content>

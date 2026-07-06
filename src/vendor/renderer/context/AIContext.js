@@ -24,14 +24,24 @@ export const AIContextProvider = ({ children }) => {
     'pileAIProvider',
     'openai'
   );
-  const [model, setModel] = useElectronStore('model', 'gpt-4o');
+  const [model, setModel] = useElectronStore('model', 'gpt-5.1');
   const [embeddingModel, setEmbeddingModel] = useElectronStore(
     'embeddingModel',
     'mxbai-embed-large'
   );
   const [baseUrl, setBaseUrl] = useElectronStore('baseUrl', OPENAI_URL);
+  const [harnessType, setHarnessType] = useElectronStore(
+    'harnessType',
+    'claude'
+  );
+  const [harnessModel, setHarnessModel] = useElectronStore('harnessModel', '');
 
   const setupAi = useCallback(async () => {
+    if (pileAIProvider === 'harness') {
+      setAi({ type: 'harness' });
+      return;
+    }
+
     const key = await window.electron.ipc.invoke('get-ai-key');
     if (!key && pileAIProvider !== 'ollama') return;
 
@@ -60,7 +70,33 @@ export const AIContextProvider = ({ children }) => {
       if (!ai) return;
 
       try {
-        if (ai.type === 'ollama') {
+        if (ai.type === 'harness') {
+          const requestId = `harness-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2)}`;
+          const unsubscribe = window.electron.ipc.on(
+            'harness-chunk',
+            (id, chunk) => {
+              if (id === requestId && chunk) callback(chunk);
+            }
+          );
+          try {
+            const response = await window.electron.ipc.invoke(
+              'harness-generate',
+              {
+                requestId,
+                harness: harnessType,
+                model: harnessModel || undefined,
+                messages: context,
+              }
+            );
+            if (!response?.ok) {
+              throw new Error(response?.error || 'Harness generation failed');
+            }
+          } finally {
+            unsubscribe();
+          }
+        } else if (ai.type === 'ollama') {
           const response = await fetch(`${OLLAMA_URL}/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -93,7 +129,7 @@ export const AIContextProvider = ({ children }) => {
           const stream = await ai.instance.chat.completions.create({
             model,
             stream: true,
-            max_tokens: 500,
+            max_completion_tokens: 500,
             messages: context,
           });
 
@@ -106,7 +142,7 @@ export const AIContextProvider = ({ children }) => {
         throw error;
       }
     },
-    [ai, model]
+    [ai, model, harnessType, harnessModel]
   );
 
   const prepareCompletionContext = useCallback(
@@ -124,6 +160,11 @@ export const AIContextProvider = ({ children }) => {
   );
 
   const checkApiKeyValidity = async () => {
+    // Keyless providers are always "valid" — they need no API key
+    if (pileAIProvider === 'ollama' || pileAIProvider === 'harness') {
+      return true;
+    }
+
     // TODO: Add regex for OpenAPI and Ollama API keys
     const key = await window.electron.ipc.invoke('get-ai-key');
     
@@ -154,6 +195,10 @@ export const AIContextProvider = ({ children }) => {
     prepareCompletionContext,
     pileAIProvider,
     setPileAIProvider,
+    harnessType,
+    setHarnessType,
+    harnessModel,
+    setHarnessModel,
   };
 
   return (

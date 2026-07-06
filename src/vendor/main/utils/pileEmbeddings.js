@@ -48,7 +48,11 @@ class PileEmbeddings {
       this.pilePath = pilePath;
       await this.initializeAPIKey();
 
-      if (!this.apiKey) {
+      const pileAIProvider = await settings.get('pileAIProvider');
+      const keylessProvider =
+        pileAIProvider === 'ollama' || pileAIProvider === 'harness';
+
+      if (!this.apiKey && !keylessProvider) {
         console.log(
           'API key not found. Please set it first to use AI features.'
         );
@@ -70,11 +74,8 @@ class PileEmbeddings {
   }
 
   async initializeAPIKey() {
-    const apiKey = await getKey();
-    if (!apiKey) {
-      throw new Error('API key not found. Please set it first.');
-    }
-    this.apiKey = apiKey;
+    // May be null — keyless providers (Ollama, CLI harness) don't need one
+    this.apiKey = await getKey();
   }
 
   async walkAndGenerateEmbeddings(pilePath, index) {
@@ -141,7 +142,11 @@ class PileEmbeddings {
   async generateEmbedding(document) {
     const pileAIProvider = await settings.get('pileAIProvider');
     const embeddingModel = await settings.get('embeddingModel');
-    const isOllama = pileAIProvider === 'ollama';
+    // CLI harnesses can't generate embeddings — use OpenAI when a key
+    // is stored, otherwise fall back to local Ollama
+    const isOllama =
+      pileAIProvider === 'ollama' ||
+      (pileAIProvider === 'harness' && !this.apiKey);
 
     if (isOllama) {
       const url = 'http://127.0.0.1:11434/api/embed';
