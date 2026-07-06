@@ -129,11 +129,15 @@
 
     .meta {
       display: flex;
-      flex-direction: column;
-      align-items: flex-end;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 3px;
       margin-top: -3px;
+      margin-right: -5px;
 
-      .time {
+      .time,
+      .copy {
         position: relative;
         z-index: 1;
         color: var(--secondary);
@@ -142,7 +146,6 @@
         transition: all ease-in-out 120ms;
         border-radius: 6px;
         user-select: none;
-        margin: 0 -5px;
 
         &:hover {
           cursor: pointer;
@@ -163,7 +166,29 @@
           background: var(--bg-tertiary);
         }
       }
+
+      .copy {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity ease-in-out 120ms, background ease-in-out 120ms,
+          color ease-in-out 120ms;
+
+        .icon {
+          height: 16px;
+          width: 16px;
+        }
+
+        &.copied {
+          opacity: 1;
+        }
+      }
     }
+  }
+
+  &:hover .header .meta .copy {
+    opacity: 1;
   }
 
   .editor {

@@ -14,6 +14,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Reply from './Reply';
 import {
   AIIcon,
+  CheckIcon,
+  CopyIcon,
   EditIcon,
   NeedleIcon,
   PaperIcon,
@@ -35,6 +37,21 @@ const Post = memo(({ postPath, searchTerm = null, repliesCount = 0 }) => {
   const [isAIResplying, setIsAiReplying] = useState(false);
   const [editable, setEditable] = useState(false);
   const [aiApiKeyValid, setAiApiKeyValid] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copiedTimeoutRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(copiedTimeoutRef.current), []);
+
+  const handleCopy = () => {
+    const div = document.createElement('div');
+    div.innerHTML = (post?.content || '')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|li|h[1-6])>/gi, '\n');
+    navigator.clipboard.writeText(div.textContent.trim());
+    setCopied(true);
+    clearTimeout(copiedTimeoutRef.current);
+    copiedTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
+  };
 
   // Check if the AI API key is valid
   useEffect(() => {
@@ -134,6 +151,18 @@ const Post = memo(({ postPath, searchTerm = null, repliesCount = 0 }) => {
           <div className={styles.header}>
             <div className={styles.title}>{post.name}</div>
             <div className={styles.meta}>
+              <button
+                className={`${styles.copy} ${copied ? styles.copied : ''}`}
+                onClick={handleCopy}
+                title="Copy message"
+                aria-label={copied ? 'Copied' : 'Copy message'}
+              >
+                {copied ? (
+                  <CheckIcon className={styles.icon} />
+                ) : (
+                  <CopyIcon className={styles.icon} />
+                )}
+              </button>
               <button className={styles.time} onClick={toggleEditable}>
                 {created.toRelative()}
               </button>

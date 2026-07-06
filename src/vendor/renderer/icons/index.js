@@ -1,4 +1,6 @@
 export * from './img/BoxIcon';
+export * from './img/CopyIcon';
+export * from './img/CheckIcon';
 export * from './img/BookmarkIcon';
 export * from './img/NewsletterIcon';
 export * from './img/GlobeIcon';
