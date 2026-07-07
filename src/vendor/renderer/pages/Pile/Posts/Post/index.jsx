@@ -30,8 +30,9 @@ const Post = memo(({ postPath, searchTerm = null, repliesCount = 0 }) => {
   const { currentPile, getCurrentPilePath } = usePilesContext();
   const { highlights } = useHighlightsContext();
   const { validKey } = useAIContext();
-  // const { setClosestDate } = useTimelineContext();
-  const { post, cycleColor, refreshPost, setHighlight } = usePost(postPath);
+  const { setDateEditPost } = useTimelineContext();
+  const { post, cycleColor, refreshPost, setHighlight, moveToDate } =
+    usePost(postPath);
   const [hovering, setHover] = useState(false);
   const [replying, setReplying] = useState(false);
   const [isAIResplying, setIsAiReplying] = useState(false);
@@ -80,6 +81,17 @@ const Post = memo(({ postPath, searchTerm = null, repliesCount = 0 }) => {
   const handleRootMouseEnter = () => setHover(true);
   const handleRootMouseLeave = () => setHover(false);
   const containerRef = useRef();
+
+  // While this post is in edit mode, register it as the sidebar's re-date
+  // target so clicking a day moves this entry (see Timeline). Unregister when
+  // it leaves edit mode or unmounts.
+  useEffect(() => {
+    if (!editable) return;
+    setDateEditPost({ path: postPath, moveToDate });
+    return () => {
+      setDateEditPost((cur) => (cur && cur.path === postPath ? null : cur));
+    };
+  }, [editable, postPath, moveToDate, setDateEditPost]);
 
   if (!post) return;
 

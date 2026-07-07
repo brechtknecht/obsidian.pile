@@ -5,6 +5,7 @@ import {
   deleteFile,
   getFilePathForNewPost,
   getDirectoryPath,
+  inferDateFromFilename,
 } from '../utils/fileOperations';
 
 export const getPost = async (postPath) => {
@@ -26,7 +27,10 @@ export const attachToPostCreator =
   (setPost, getCurrentPilePath) => async (fileData, fileExtension) => {
     const storePath = getCurrentPilePath();
 
-    let newAttachments = [];
+    // Each stored file is tracked with the ORIGINAL filename it came from (when
+    // known), so we can infer a capture date from it — regardless of whether it
+    // was dropped, pasted, or picked from the native file dialog.
+    let stored = []; // Array<{ path, name }>
     if (fileData && typeof fileData === 'object' && fileData.filePath) {
       // media that already exists on disk (pasted/dropped file) — copy it
       // into the pile instead of round-tripping through base64
@@ -40,12 +44,13 @@ export const attachToPostCreator =
       );
 
       if (newFilePath) {
-        newAttachments.push(newFilePath);
+        stored.push({ path: newFilePath, name: fileData.filePath });
       } else {
         console.error('Failed to copy the pasted file.');
       }
     } else if (fileData) {
-      // save data URL contents (e.g. pasted screenshot) to a file
+      // save data URL contents (e.g. pasted screenshot) to a file — clipboard
+      // bitmaps carry no filename, so there's no date to infer
       const newFilePath = await window.electron.ipc.invoke('save-file', {
         fileData: fileData,
         fileExtension: fileExtension,
@@ -53,23 +58,38 @@ export const attachToPostCreator =
       });
 
       if (newFilePath) {
-        newAttachments.push(newFilePath);
+        stored.push({ path: newFilePath, name: null });
       } else {
         console.error('Failed to save the pasted image.');
       }
     } else {
-      newAttachments = await window.electron.ipc.invoke('open-file', {
+      // native file picker — the handler returns the original filename too
+      const picked = await window.electron.ipc.invoke('open-file', {
         storePath: storePath,
       });
+      for (const item of picked || []) {
+        if (typeof item === 'string') {
+          stored.push({ path: item, name: null });
+        } else if (item && item.path) {
+          stored.push({ path: item.path, name: item.name || null });
+        }
+      }
     }
+
     // Attachments are stored relative to the base path from the
     // base directory of the pile
-    const correctedPaths = newAttachments.map((path) => {
+    const correctedPaths = stored.map(({ path }) => {
       const pathArr = path.split(/[/\\]/).slice(-4);
-      const newPath = window.electron.joinPath(...pathArr);
-
-      return newPath;
+      return window.electron.joinPath(...pathArr);
     });
+
+    // Dates inferred from the original filenames, keyed by the stored path.
+    const dates = correctedPaths
+      .map((path, i) => {
+        const iso = inferDateFromFilename(stored[i].name);
+        return iso ? { path, iso } : null;
+      })
+      .filter(Boolean);
 
     setPost((post) => {
       const attachments = [...correctedPaths, ...post.data.attachments];
@@ -80,6 +100,9 @@ export const attachToPostCreator =
 
       return newPost;
     });
+
+    // Returned so callers can offer to date the entry from its images.
+    return { paths: correctedPaths, dates };
   };
 
 export const detachFromPostCreator =

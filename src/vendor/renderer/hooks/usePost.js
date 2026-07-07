@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { DateTime } from 'luxon';
 import { usePilesContext } from 'renderer/context/PilesContext';
 import * as fileOperations from '../utils/fileOperations';
 import { useIndexContext } from 'renderer/context/IndexContext';
@@ -43,8 +44,14 @@ function usePost(
   } = {}
 ) {
   const { currentPile, getCurrentPilePath } = usePilesContext();
-  const { addIndex, removeIndex, refreshIndex, updateIndex, prependIndex } =
-    useIndexContext();
+  const {
+    addIndex,
+    removeIndex,
+    refreshIndex,
+    updateIndex,
+    prependIndex,
+    sortedUpsertIndex,
+  } = useIndexContext();
   const [updates, setUpdates] = useState(0);
   const [path, setPath] = useState(); // absolute path
   const [post, setPost] = useState({ ...defaultPost });
@@ -102,8 +109,11 @@ function usePost(
           getCurrentPilePath() + window.electron.pathSeparator,
           ''
         );
-        prependIndex(postRelativePath, data); // Add the file to the index
-        addIndex(postRelativePath, parentPostPath); // Add the file to the index
+        // Sorted insert so a back-dated entry lands in its chronological spot
+        // (in the past) instead of being pinned to the top.
+        sortedUpsertIndex(postRelativePath, data);
+        addIndex(postRelativePath, parentPostPath); // persist to disk index
+
         window.electron.ipc.invoke('tags-sync', saveToPath); // Sync tags
         console.timeEnd('post-time');
       } catch (error) {
@@ -130,6 +140,49 @@ function usePost(
     updateIndex(parentPostPath, data);
     reloadParentPost(parentPostPath);
   };
+
+  // Obsidian port: re-date an existing entry to `targetDate` (a JS Date; only
+  // the calendar day is used, the original time-of-day is preserved). We only
+  // rewrite the `createdAt`/`updatedAt` frontmatter and re-sort the index —
+  // the file is intentionally NOT moved to a new year/month folder, so its
+  // index key, reply references and attachment paths stay valid. The filename
+  // timestamp becomes a cosmetic id; ordering everywhere is driven by
+  // `createdAt` (see pileIndex.sortMap). To also relocate the file on disk,
+  // this is where you'd rename it and migrate the index key + parent replies.
+  const moveToDate = useCallback(
+    async (targetDate) => {
+      if (!path || !postPath) return;
+
+      // Read fresh from disk so we never clobber content that was edited in a
+      // separate usePost instance (the Editor holds its own copy).
+      const fresh = await getPost(path);
+      if (!fresh) return;
+
+      const base = fresh.data.createdAt
+        ? DateTime.fromISO(fresh.data.createdAt)
+        : DateTime.now();
+      const moved = base.set({
+        year: targetDate.getFullYear(),
+        month: targetDate.getMonth() + 1,
+        day: targetDate.getDate(),
+      });
+
+      const data = {
+        ...fresh.data,
+        createdAt: moved.toISO(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const fileContents = await fileOperations.generateMarkdown(
+        fresh.content,
+        data
+      );
+      await fileOperations.saveFile(path, fileContents);
+      setPost({ ...fresh, data });
+      await updateIndex(postPath, data); // re-sorts index → list + timeline
+    },
+    [path, postPath, updateIndex]
+  );
 
   const deletePost = useCallback(async () => {
     if (!postPath) return null;
@@ -179,6 +232,7 @@ function usePost(
     savePost,
     refreshPost,
     deletePost,
+    moveToDate,
     ...postActions,
   };
 }

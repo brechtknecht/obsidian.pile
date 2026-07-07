@@ -117,7 +117,9 @@ ipcMain.handle(
 );
 
 ipcMain.handle('open-file', async (event, data) => {
-  let attachments: string[] = [];
+  // Each entry keeps the original filename so the renderer can infer a capture
+  // date from it (the stored copy is renamed to a timestamp below).
+  let attachments: { path: string; name: string }[] = [];
   const storePath = data.storePath;
   const selected = await dialog.showOpenDialog({
     properties: ['openFile', 'multiSelections'],
@@ -161,7 +163,7 @@ ipcMain.handle('open-file', async (event, data) => {
     try {
       await fs.promises.mkdir(fullStorePath, { recursive: true });
       await fs.promises.copyFile(filePath, newFilePath);
-      attachments.push(newFilePath);
+      attachments.push({ path: newFilePath, name: selectedFileName });
     } catch (err) {
       console.error(err);
     }

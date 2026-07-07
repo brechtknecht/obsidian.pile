@@ -1,0 +1,39 @@
+name: Release
+
+# Fires when you push a version tag (e.g. `0.1.1`). Builds the plugin and
+# attaches main.js, manifest.json, styles.css to a GitHub Release — so the
+# distributable files are always generated for you, never by hand.
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Create release with plugin assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          gh release create "$tag" \
+            main.js manifest.json styles.css \
+            --title "$tag" \
+            --generate-notes

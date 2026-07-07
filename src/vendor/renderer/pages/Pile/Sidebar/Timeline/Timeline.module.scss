@@ -133,6 +133,29 @@
   }
 }
 
+// When a post is in edit mode, clicking a day re-dates it. Signal that the
+// days are now "move here" targets.
+.picking {
+  .day {
+    cursor: pointer;
+
+    &:hover {
+      color: var(--active);
+
+      .dayLine {
+        width: 30px;
+        background: var(--active);
+        opacity: 1;
+      }
+
+      .dayNumber {
+        opacity: 1;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
 .scrubber {
   position: absolute;
   top: 0;

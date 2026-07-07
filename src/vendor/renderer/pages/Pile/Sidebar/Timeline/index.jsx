@@ -149,10 +149,15 @@ const Timeline = memo(() => {
   const scrollRef = useRef(null);
   const scrubRef = useRef(null);
   const { index } = useIndexContext();
-  const { visibleIndex, scrollToIndex, closestDate, setClosestDate } =
+  const { visibleIndex, scrollToIndex, closestDate, setClosestDate, dateEditPost } =
     useTimelineContext();
   const [parentEntries, setParentEntries] = useState([]);
   const [oldestDate, setOldestDate] = useState(new Date());
+
+  // Kept in a ref so the day-click handler (captured in a memoized week list)
+  // always sees the current edit target without rebuilding the weeks.
+  const dateEditPostRef = useRef(dateEditPost);
+  dateEditPostRef.current = dateEditPost;
 
   //  Extract parent entries
   useEffect(() => {
@@ -206,6 +211,20 @@ const Timeline = memo(() => {
     [parentEntries]
   );
 
+  // A day click re-dates the entry that is currently being edited, if any;
+  // otherwise it falls back to scrolling the timeline to that date.
+  const handleDayClick = useCallback(
+    (date) => {
+      const target = dateEditPostRef.current;
+      if (target) {
+        target.moveToDate(date);
+      } else {
+        scrollToDate(date);
+      }
+    },
+    [scrollToDate]
+  );
+
   const getWeeks = useCallback(() => {
     let weeks = [];
     let now = new Date();
@@ -241,7 +260,7 @@ const Timeline = memo(() => {
         key={index}
         startDate={week.start}
         endDate={week.end}
-        scrollToDate={scrollToDate}
+        scrollToDate={handleDayClick}
       />
     ));
 
@@ -274,7 +293,11 @@ const Timeline = memo(() => {
   }, [closestDate]);
 
   return (
-    <div ref={scrollRef} className={styles.timeline}>
+    <div
+      ref={scrollRef}
+      className={`${styles.timeline} ${dateEditPost ? styles.picking : ''}`}
+      title={dateEditPost ? 'Click a day to move this entry' : undefined}
+    >
       {weeks}
       <div ref={scrubRef} className={styles.scrubber}></div>
     </div>

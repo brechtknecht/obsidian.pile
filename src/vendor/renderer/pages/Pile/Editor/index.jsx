@@ -1,6 +1,7 @@
 import './ProseMirror.scss';
 import styles from './Editor.module.scss';
-import { useCallback, useState, useEffect, useRef, memo } from 'react';
+import { useCallback, useState, useEffect, useRef, useMemo, memo } from 'react';
+import { DateTime } from 'luxon';
 import { Extension } from '@tiptap/core';
 import { useEditor, EditorContent } from '@tiptap/react';
 import Link from '@tiptap/extension-link';
@@ -74,6 +75,53 @@ const Editor = memo(
 
     const isNew = !postPath;
 
+    // Obsidian port: date-from-attachment. Each dated attachment contributes
+    // { path, iso }; a single toggle lets the user date this (not-yet-saved)
+    // entry to the images' capture date instead of "now". Keyed by stored path
+    // so add/remove stays in sync when there are multiple images. Only used for
+    // brand-new top-level entries — replies and existing posts are untouched.
+    const supportsDateFromImage = isNew && !isReply;
+    const [extractedDates, setExtractedDates] = useState([]);
+    const [useExtractedDate, setUseExtractedDate] = useState(false);
+    const hadExtractedRef = useRef(false);
+
+    // The whole post gets one date: the earliest capture across its images.
+    const extractedDate = useMemo(() => {
+      if (extractedDates.length === 0) return null;
+      return extractedDates.reduce(
+        (min, e) => (e.iso < min ? e.iso : min),
+        extractedDates[0].iso
+      );
+    }, [extractedDates]);
+
+    const extractedDateLabel = useMemo(
+      () =>
+        extractedDate
+          ? DateTime.fromISO(extractedDate).toLocaleString(DateTime.DATE_MED)
+          : null,
+      [extractedDate]
+    );
+
+    // Default the toggle on the first time a dated image appears; reset it once
+    // every dated image has been removed.
+    useEffect(() => {
+      if (extractedDate && !hadExtractedRef.current) {
+        hadExtractedRef.current = true;
+        setUseExtractedDate(true);
+      } else if (!extractedDate && hadExtractedRef.current) {
+        hadExtractedRef.current = false;
+        setUseExtractedDate(false);
+      }
+    }, [extractedDate]);
+
+    const recordExtractedDates = useCallback((entries) => {
+      setExtractedDates((cur) => {
+        const seen = new Set(cur.map((e) => e.path));
+        const additions = entries.filter((e) => e.iso && !seen.has(e.path));
+        return additions.length ? [...cur, ...additions] : cur;
+      });
+    }, []);
+
     const EnterSubmitExtension = Extension.create({
       name: 'EnterSubmitExtension',
       addCommands() {
@@ -98,6 +146,13 @@ const Editor = memo(
       },
     });
 
+    // attachToPost returns { paths, dates }; feed any inferred dates to the
+    // date-toggle (only for new top-level posts).
+    const recordDates = (res) => {
+      if (!supportsDateFromImage) return;
+      if (res && res.dates && res.dates.length) recordExtractedDates(res.dates);
+    };
+
     const handleFile = (file) => {
       if (!file || !mediaKind(file)) return false;
       const fileExtension = extensionForFile(file);
@@ -108,14 +163,17 @@ const Editor = memo(
       // through base64.
       const filePath = window.electron.getPathForFile?.(file);
       if (filePath) {
-        attachToPost({ filePath }, fileExtension);
+        Promise.resolve(attachToPost({ filePath }, fileExtension)).then(
+          recordDates
+        );
         return true;
       }
 
-      // Bitmap-only clipboards (macOS screenshots) have no path.
+      // Bitmap-only clipboards (macOS screenshots) have no path/filename.
       const reader = new FileReader();
-      reader.onload = () => {
-        attachToPost(reader.result, fileExtension);
+      reader.onload = async () => {
+        const res = await attachToPost(reader.result, fileExtension);
+        recordDates(res);
       };
       reader.readAsDataURL(file);
       return true;
@@ -211,16 +269,32 @@ const Editor = memo(
     }, [editor, editable, isAI]);
 
     const handleSubmit = useCallback(async () => {
-      await savePost();
+      const overrides =
+        supportsDateFromImage && useExtractedDate && extractedDate
+          ? { createdAt: extractedDate }
+          : undefined;
+      await savePost(overrides);
       if (isNew) {
         resetPost();
+        setExtractedDates([]);
+        setUseExtractedDate(false);
+        hadExtractedRef.current = false;
         closeReply();
         return;
       }
 
       closeReply();
       setEditable(false);
-    }, [editor, isNew, post]);
+    }, [editor, isNew, post, supportsDateFromImage, useExtractedDate, extractedDate]);
+
+    // Removing an attachment drops its contribution to the extracted date.
+    const handleRemoveAttachment = useCallback(
+      (attachmentPath) => {
+        detachFromPost(attachmentPath);
+        setExtractedDates((cur) => cur.filter((e) => e.path !== attachmentPath));
+      },
+      [detachFromPost]
+    );
 
     // Listen for the 'submit' event and call handleSubmit when it's triggered
     useEffect(() => {
@@ -296,7 +370,10 @@ const Editor = memo(
       }
     }, [post, editor]);
 
-    const triggerAttachment = () => attachToPost();
+    const triggerAttachment = async () => {
+      const res = await attachToPost();
+      recordDates(res);
+    };
 
     useEffect(() => {
       if (editor) {
@@ -372,7 +449,7 @@ const Editor = memo(
               <Attachments
                 post={post}
                 editable={editable}
-                onRemoveAttachment={detachFromPost}
+                onRemoveAttachment={handleRemoveAttachment}
               />
             </div>
           </div>
@@ -386,6 +463,31 @@ const Editor = memo(
               </button>
             </div>
             <div className={styles.right}>
+              {supportsDateFromImage && extractedDate && (
+                <div
+                  className={styles.dateToggle}
+                  title={`Date this entry — "Now" or the image's date (${extractedDateLabel})`}
+                >
+                  <button
+                    type="button"
+                    className={`${styles.dateOption} ${
+                      !useExtractedDate ? styles.dateActive : ''
+                    }`}
+                    onClick={() => setUseExtractedDate(false)}
+                  >
+                    Now
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.dateOption} ${
+                      useExtractedDate ? styles.dateActive : ''
+                    }`}
+                    onClick={() => setUseExtractedDate(true)}
+                  >
+                    {extractedDateLabel}
+                  </button>
+                </div>
+              )}
               {isReply && (
                 <button className={styles.deleteButton} onClick={closeReply}>
                   Close

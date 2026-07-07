@@ -44,6 +44,21 @@ export const IndexContextProvider = ({ children }) => {
     });
   }, []);
 
+  // Insert/replace an entry and keep the map sorted by createdAt (newest first),
+  // mirroring pileIndex.sortMap on the main side. Used when saving so a
+  // back-dated entry lands in its correct chronological spot instead of the top.
+  const sortedUpsertIndex = useCallback((key, value) => {
+    setIndex((prevIndex) => {
+      const merged = new Map(prevIndex);
+      merged.set(key, value);
+      return new Map(
+        [...merged.entries()].sort(
+          (a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt)
+        )
+      );
+    });
+  }, []);
+
   const addIndex = useCallback(
     async (newEntryPath, parentPath = null) => {
       console.time('index-add-time');
@@ -112,7 +127,8 @@ export const IndexContextProvider = ({ children }) => {
     getThreadsAsText,
     latestThreads,
     regenerateEmbeddings,
-    prependIndex
+    prependIndex,
+    sortedUpsertIndex,
   };
 
   return (

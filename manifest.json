@@ -1,7 +1,7 @@
 {
   "id": "pile",
   "name": "Pile",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "minAppVersion": "1.5.0",
   "description": "Pile-style chronological journal with AI reflections, inside your vault.",
   "author": "Felix Tesche",

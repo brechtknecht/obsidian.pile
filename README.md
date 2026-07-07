@@ -36,7 +36,22 @@ Key mechanics:
   `prefers-color-scheme: dark` rewritten to `.is-dark` gating that follows
   Obsidian's light/dark setting, fonts/images inlined as data URIs.
 
-## Build
+## Install
+
+Desktop only. Two ways:
+
+**Via BRAT (recommended — auto-updates):**
+1. Install the [BRAT](https://github.com/TfTHacker/obsidian42-brat) community plugin.
+2. BRAT → *Add beta plugin* → paste `brechtknecht/obsidian.pile`.
+3. Enable **Pile** in Settings → Community plugins.
+
+**Manual:**
+1. From the [latest release](https://github.com/brechtknecht/obsidian.pile/releases),
+   download `main.js`, `manifest.json`, `styles.css`.
+2. Drop them into `<vault>/.obsidian/plugins/pile/`.
+3. Reload Obsidian, enable **Pile**.
+
+## Develop
 
 ```sh
 npm install
@@ -45,6 +60,20 @@ npm run dev     # watch mode
 ```
 
 Reload the plugin in Obsidian after building.
+
+## Release (maintainers)
+
+One command — CI builds the files and publishes the release, so you never
+generate `main.js`/`styles.css` by hand:
+
+```sh
+npm version patch   # or: minor | major
+```
+
+That bumps `package.json`, syncs `manifest.json` + `versions.json`, commits,
+tags, and pushes. The tag push triggers `.github/workflows/release.yml`, which
+builds and attaches `main.js` + `manifest.json` + `styles.css` to a new GitHub
+Release. BRAT users get the update automatically.
 
 ## Status
 
