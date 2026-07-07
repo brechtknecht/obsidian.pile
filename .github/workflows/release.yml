@@ -30,9 +30,12 @@ jobs:
 
       - name: Package plugin folder as a zip
         run: |
+          tag="${GITHUB_REF#refs/tags/}"
           mkdir -p pile
           cp main.js manifest.json styles.css pile/
-          zip -r pile.zip pile
+          # Version-prefixed so it sorts to the TOP of the asset list
+          # (digits sort before letters) and names its own version.
+          zip -r "${tag}-pile.obsidian.zip" pile
 
       - name: Create release with plugin assets
         env:
@@ -40,8 +43,8 @@ jobs:
         run: |
           tag="${GITHUB_REF#refs/tags/}"
           # Loose files stay attached for BRAT (it fetches them individually);
-          # pile.zip is the convenience download for manual install.
+          # the versioned zip is the convenience download for manual install.
           gh release create "$tag" \
-            main.js manifest.json styles.css pile.zip \
+            "${tag}-pile.obsidian.zip" main.js manifest.json styles.css \
             --title "$tag" \
             --generate-notes

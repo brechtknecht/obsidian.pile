@@ -47,7 +47,7 @@ Desktop only. Two ways:
 
 **Manual:**
 1. From the [latest release](https://github.com/brechtknecht/obsidian.pile/releases),
-   download `pile.zip`.
+   download the `…-pile.obsidian.zip` at the top of the assets.
 2. Unzip it into `<vault>/.obsidian/plugins/` (it contains a `pile/` folder).
 3. Reload Obsidian, enable **Pile**.
 
