@@ -47,8 +47,8 @@ Desktop only. Two ways:
 
 **Manual:**
 1. From the [latest release](https://github.com/brechtknecht/obsidian.pile/releases),
-   download `main.js`, `manifest.json`, `styles.css`.
-2. Drop them into `<vault>/.obsidian/plugins/pile/`.
+   download `pile.zip`.
+2. Unzip it into `<vault>/.obsidian/plugins/` (it contains a `pile/` folder).
 3. Reload Obsidian, enable **Pile**.
 
 ## Develop
