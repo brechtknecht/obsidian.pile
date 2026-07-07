@@ -1,6 +1,6 @@
 {
   "name": "pile-obsidian",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Literal port of Pile (UdaraJay/Pile) as an Obsidian view",
   "private": true,
   "scripts": {
